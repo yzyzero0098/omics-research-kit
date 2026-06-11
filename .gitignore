@@ -1,0 +1,51 @@
+# Raw and private omics data
+*.fastq
+*.fq
+*.fastq.gz
+*.fq.gz
+*.bam
+*.bai
+*.sam
+*.cram
+*.qza
+*.qzv
+*.biom
+*.raw
+*.mzML
+*.mzXML
+*.wiff
+*.db
+*.sqlite
+
+# Archives and binaries
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+*.msi
+*.exe
+
+# Documents likely to contain private/unpublished material
+*.pdf
+*.ppt
+*.pptx
+*.doc
+*.docx
+*.hwp
+*.hwpx
+~$*
+
+# Generated reports and caches
+*.html
+*.htm
+*.log
+__pycache__/
+*.pyc
+.Rhistory
+.RData
+.Rproj.user/
+node_modules/
+dist/
+

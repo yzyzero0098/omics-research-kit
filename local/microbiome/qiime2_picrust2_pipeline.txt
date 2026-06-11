@@ -1,0 +1,188 @@
+# 1. Importing data
+qiime tools import \
+  --type 'SampleData[PairedEndSequencesWithQuality]' \
+  --input-path importing_file.csv \
+  --output-path paired-end-demux.qza \
+  --input-format PairedEndFastqManifestPhred33
+
+qiime demux summarize \--i-data  paired-end-demux.qza \--o-visualization demux.qzv
+
+qiime tools view demux.qzv
+# 2. Trimming 
+time qiime dada2 denoise-paired \
+--i-demultiplexed-seqs paired-end-demux.qza \
+--p-trim-left-f 5 \
+--p-trim-left-r 5 \
+--p-trunc-len-f 260 \
+--p-trunc-len-r 220 \
+--o-table table.qza \
+--o-representative-sequences rep-seqs.qza \
+--o-denoising-stats denoising-stats.qza \
+--p-n-threads 64
+
+qiime feature-table summarize \--i-table table.qza \--o-visualization table.qzv \--m-sample-metadata-file sample-metadata.txt
+
+qiime feature-table tabulate-seqs \--i-data rep-seqs.qza \--o-visualization rep-seqs.qzv
+
+### 얼마나 잘렸는지에 대한 확인 ####
+qiime metadata tabulate \--m-input-file denoising-stats.qza --o-visualization denoising_stats.qzv 
+
+# 3. Filtering based on table data
+
+############# 샘플중 Frequency가 낮은 샘플 제거########
+qiime feature-table filter-samples \
+  --i-table table.qza \
+  --p-min-frequency 1500\
+  --o-filtered-table sample-frequency-filtered-table.qza
+
+############# 전체샘플에서 Feature 의 Frequency가 낮은 Feature 와 총 샘플중에서 몇개의 낮은 샘플에서만 존재하는 Feature  제거 &  ########
+
+qiime feature-table filter-features \
+  --i-table table.qza \
+  --p-min-frequency 31 \
+  --p-min-samples 3 \
+  --o-filtered-table feature-frequency-filtered-table.qza
+
+qiime feature-table summarize \--i-table feature-frequency-filtered-table.qza \--o-visualization feature-frequency-filtered-table.qzv \--m-sample-metadata-file sample-metadata.txt
+
+
+# 4. Phylogenetic Tree (for 다양성 분석)
+qiime phylogeny align-to-tree-mafft-fasttree \--i-sequences rep-seqs.qza \--o-alignment aligned-rep-seqs.qza \--o-masked-alignment masked-aligned-rep-seqs.qza \--o-tree unrooted-tree.qza \--o-rooted-tree rooted-tree.qza
+
+  --i-sequences rep-seqs.qza \ # FeatureData[Sequence]
+  --o-alignment aligned-rep-seqs.qza \ # 1) MSA (mafft)
+  --o-masked-alignment masked-aligned-rep-seqs.qza \ # 2) Remove highly variable positions in MSA
+  --o-tree unrooted-tree.qza \ # 3) Generate tree (FastTree)
+  --o-rooted-tree rooted-tree.qza # 4) Midpoint rooting (Phylogeny[Rooted])
+
+# 6. Diversity analysis (Alpha & Beta)
+# feature-frequency-filtered-table.qzv 파일에서 Frequency per sample에서 최소의 샘플을 선정
+# 최소의 샘플을 선정하면 나머지 샘플들에서 max depth에 맞춰서 랜덤샘플링을 통해 seq-depth 보정
+qiime diversity alpha-rarefaction \--i-table feature-frequency-filtered-table.qza \--i-phylogeny rooted-tree.qza \--p-max-depth 4030 \--m-metadata-file sample-metadata.txt \--o-visualization alpha-rarefaction_4030.qzv
+
+# alpha-rarefaction.qzv 파일에서 observed otu가 점점 평행한 상태를 선정 sampling-depth 1560 -> otu 변동이 적어진다
+
+qiime diversity core-metrics-phylogenetic \--i-phylogeny rooted-tree.qza \--i-table feature-frequency-filtered-table.qza \--p-sampling-depth 4030 \--m-metadata-file sample-metadata_laying_NC_PC.txt \--output-dir core-metrics-results
+
+
+qiime diversity core-metrics-phylogenetic \--i-phylogeny rooted-tree.qza \--i-table feature-frequency-filtered-table.qza \--p-sampling-depth 4030 \--m-metadata-file sample-metadata.txt \--output-dir core-metrics-results
+
+##################################################################
+# Statistical test (Alpah diversity): Boxplots and Kruskal-Wallis test
+
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity core-metrics-results/faith_pd_vector.qza \
+  --m-metadata-file sample-metadata.txt \
+  --o-visualization core-metrics-results/faith-pd-group-significance.qzv
+
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity core-metrics-results/evenness_vector.qza \
+  --m-metadata-file sample-metadata.txt \
+  --o-visualization core-metrics-results/evenness-group-significance.qzv
+
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity core-metrics-results/shannon_vector.qza \
+  --m-metadata-file sample-metadata.txt \
+  --o-visualization core-metrics-results/shannon_group-significance.qzv
+
+Richness : The number of species per sample.
+Evenness : Relative abundance of the different species making up the richness of an area.
+Shannon : both richness and abundance across samples, commonly referred to as evenness
+#####################################################################
+
+# Statistical test (Beta diversity): PERMANOVA -> 샘플간의 미생물 분포의 차이를 보는것
+# Create a distance plot
+Column 선정을 해야함 
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/jaccard_distance_matrix.qza \
+  --m-metadata-file sample-metadata.txt \
+  --m-metadata-column Treat \
+  --o-visualization core-metrics-results/jaccard_distance_matrix-Treat-significance.qzv \
+  --p-pairwise
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/unweighted_unifrac_distance_matrix.qza \
+  --m-metadata-file sample-metadata.txt \
+  --m-metadata-column Viral \
+  --o-visualization core-metrics-results/unweighted-unifrac-Viral-significance.qzv \
+  --p-pairwise
+
+########################################################################
+#  Create a PCoA plot
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file sample-metadata.txt \
+  --m-metadata-column Treat \
+  --o-visualization core-metrics-results/bray_curtis_distance_matrix.qza-Treat-significance.qzv \
+  --p-pairwise
+
+qiime emperor plot \
+  --i-pcoa core-metrics-results/unweighted_unifrac_pcoa_results.qza \
+  --m-metadata-file sample-metadata.txt \
+  --p-custom-axes Treat \
+  --o-visualization core-metrics-results/unweighted-unifrac-emperor-DaysSinceExperimentStart.qzv
+
+qiime emperor plot \
+  --i-pcoa core-metrics-results/bray_curtis_pcoa_results.qza \
+  --m-metadata-file sample-metadata.txt \
+  --p-custom-axes Treat \
+  --o-visualization core-metrics-results/bray-curtis-emperor-DaysSinceExperimentStart.qzv
+#############################################################################
+
+qiime tools import \--type 'FeatureData[Sequence]' \--input-path ~/Chicken_microbiome/16S/Cecum/silva_132_99_16S.fna \--output-path silva_132_99.qza
+
+qiime tools import \--type 'FeatureData[Taxonomy]' \--input-format HeaderlessTSVTaxonomyFormat \--input-path taxonomy_all_levels.txt \--output-path taxonomy_all_levels.qza
+
+qiime feature-classifier classify-sklearn \--i-classifier classifier.qza \--i-reads rep-seqs.qza \--o-classification taxonomy.qza
+
+qiime feature-classifier extract-reads \--i-sequences silva_132_99.qza \--p-f-primer GTGCAAGCMGCGGTAA \--p-r-primer GGACTACCHYGGGTWTCTATA \--o-reads ref-seqs.qza
+
+qiime feature-table filter-samples \--i-table table.qza \--m-metadata-file sample-metadata.tsv \--p-min-frequency 49150 \--o-filtered-table Cecum-table.qza
+
+qiime composition add-pseudocount \--i-table Cecum-table.qza \--o-composition-table comp-Cecum-table.qza
+
+qiime composition ancom \--i-table comp-Cecum-table.qza \--m-metadata-file sample-metadata.tsv \--m-metadata-column Treat \--o-visualization ancom-Treat.qzv
+
+# Taxanomy 
+qiime feature-classifier classify-sklearn \
+  --i-classifier silva-138-99-nb-classifier.qza \
+  --i-reads rep-seqs.qza \
+  --o-classification taxonomy.qza
+
+qiime metadata tabulate \
+  --m-input-file taxonomy.qza \
+  --o-visualization taxonomy.qzv 
+
+qiime taxa barplot \
+  --i-table feature-frequency-filtered-table.qza \
+  --i-taxonomy taxonomy.qza \
+  --m-metadata-file sample-metadata.txt \
+  --o-visualization taxa-bar-plots.qzv
+
+## rooted-tree.qza
+## ./*.txt
+## table.qza
+## taxonomy.qza
+
+
+mkdir ./function2
+cp rooted-tree.qza function2
+cp ./*.txt function2
+cp table.qza function2
+cp taxonomy.qza function2
+
+cd function2
+for i in *.qza; do
+qiime tools export --input-path $i --output-path .
+done
+
+biom convert -i feature-table.biom -o feature-table.tsv --to-tsv
+
+biom_to_stamp.py -m taxonomy \ feature-table.biom \ feature-table_w_tax.spf
+
+
+DaDa2(2) strict
+
+FLASH2 
