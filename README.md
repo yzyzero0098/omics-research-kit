@@ -4,6 +4,23 @@ Curated local notes, scripts, and public resource links for microbiome, shotgun 
 
 This is a GitHub-ready research index. It intentionally excludes private raw data, patient/sample-level raw files, PDFs, PowerPoint decks, Word drafts, databases, and large binary outputs.
 
+## Overview
+
+`omics-research-kit` is a public workflow toolkit for turning local omics
+analysis notes into reusable, citable, privacy-aware GitHub repositories. It is
+organized around microbiome, shotgun metagenomics, transcriptomics, proteomics,
+and multi-omics integration workflows.
+
+```mermaid
+flowchart LR
+    A["Study question"] --> B["Workflow notes"]
+    B --> C["Official tool docs"]
+    B --> D["Reusable scripts"]
+    C --> E["Project-specific private analysis"]
+    D --> E
+    E --> F["Public reproducibility summary"]
+```
+
 ## Who Can Reuse This Repository?
 
 This repository is intended for:
@@ -72,7 +89,7 @@ Suggested split:
 3. `shotgun-metagenomics-notes`: optional later repo if the GC Shotgun work is cleaned into non-private analysis notes.
 4. `proteomics-analysis-notes`: optional later repo for Olink/SomaScan/LC-MS-MS comparison notes after removing private data.
 
-## Installation And Reproducibility
+## Installation
 
 Clone the repository:
 
@@ -89,6 +106,8 @@ workflows. Recommended tools depend on the section:
 - transcriptomics: FASTQ QC, aligner or pseudoaligner, count summarization, and R
 - proteomics: vendor export tools, tabular normalization scripts, and R or Python
 
+## Usage
+
 Suggested reuse pattern:
 
 1. Choose the closest workflow area under `local/` or `external/`.
@@ -97,10 +116,38 @@ Suggested reuse pattern:
 4. Replace synthetic placeholders with private local paths.
 5. Publish only scripts, environment notes, and non-sensitive derived summaries.
 
+## Example
+
+Example reusable areas:
+
+```text
+local/microbiome/
+local/gc_shotgun/
+external/shotgun_metagenomics_resources.md
+external/transcriptomics_resources.md
+external/proteomics_resources.md
+```
+
+## Related publication
+
+No DOI is attached yet. Add manuscript, preprint, or protocol links here when
+an associated publication becomes available.
+
 ## Citation
 
 If this kit helps structure your study or teaching material, cite the repository
 using `CITATION.cff` or the GitHub citation button.
+
+If you use this repository, please cite:
+
+```text
+Lee J. Omics Research Kit. GitHub repository.
+https://github.com/yzyzero0098/omics-research-kit
+```
+
+## License
+
+This repository is released under the MIT License. See `LICENSE`.
 
 ## Contributing
 
